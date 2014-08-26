@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 ############################################################################
@@ -19,8 +19,12 @@
 ############################################################################
 
 
-import argparse, json, urllib
-from StringIO import StringIO
+import argparse, json
+try:
+    import urllib.request
+    from io import StringIO
+except ImportError:
+    import urllib
 
 
 def getCountByRepo(owner, repo):
@@ -28,8 +32,13 @@ def getCountByRepo(owner, repo):
     tag = ""
     count = 0
     requestUrl = "https://api.github.com/repos/" + owner + "/" + repo + "/releases"
-    requestAnswer = urllib.urlopen(requestUrl).read()
-    jsonOutput = [jsonString for jsonString in json.load(StringIO(requestAnswer))]
+    try:
+        jsonOutput = [jsonString for jsonString in json.load(urllib.urlopen(requestUrl))]
+    except AttributeError:
+        io = StringIO(urllib.request.urlopen(requestUrl).read().decode("utf-8"))
+        jsonOutput = [jsonString for jsonString in json.load(io)]
+    except:
+        pass
     try:
         count = jsonOutput[0][u'assets'][0][u'download_count']
         tag = jsonOutput[0][u'tag_name']
@@ -43,8 +52,13 @@ def getCountById(owner, repo, id):
     tag = ""
     count = 0
     requestUrl = "https://api.github.com/repos/" + owner + "/" + repo + "/releases/assets/" + id
-    requestAnswer = urllib.urlopen(requestUrl).read()
-    jsonOutput = json.load(StringIO(requestAnswer))
+    try:
+        jsonOutput = json.load(urllib.urlopen(requestUrl))
+    except AttributeError:
+        io = StringIO(urllib.request.urlopen(requestUrl).read().decode("utf-8"))
+        jsonOutput = json.load(io)
+    except:
+        pass
     try:
         count = jsonOutput[u'download_count']
         tag = id
@@ -55,10 +69,10 @@ def getCountById(owner, repo, id):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Get number of downloads for given owner and project')
-    parser.add_argument('-i', '--id', dest = 'id',
-                        help = 'release ID', action = 'store', default = False)
     parser.add_argument('-q', '--quiet', dest = 'quiet',
                         help = 'less output', action = 'store_true', default = False)
+    parser.add_argument('-i', '--id', dest = 'id',
+                        help = 'release ID', action = 'store', default = False)
     parser.add_argument('-o', '--owner', dest = 'owner',
                         help = 'repository owner', action = 'store',
                         default = False, required = True)
@@ -75,6 +89,6 @@ if __name__ == '__main__':
         tag, count = getCountByRepo(args.owner, args.repository)
 
     if (args.quiet):
-        print count
+        print (count)
     else:
-        print "Release tag: %s\nDownloads: %i" % (tag, count)
+        print ("Release tag: " + tag + "\nDownloads: " + str(count))

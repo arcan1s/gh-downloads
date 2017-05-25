@@ -19,76 +19,48 @@
 ############################################################################
 
 
-import argparse, json
-try:
-    import urllib.request
-    from io import StringIO
-except ImportError:
-    import urllib
+import argparse
+import json
+import requests
 
 
 def getCountByRepo(owner, repo):
-    """function to get info from latest release"""
-    tag = ""
-    count = 0
-    requestUrl = "https://api.github.com/repos/" + owner + "/" + repo + "/releases"
-    try:
-        jsonOutput = [jsonString for jsonString in json.load(urllib.urlopen(requestUrl))]
-    except AttributeError:
-        io = StringIO(urllib.request.urlopen(requestUrl).read().decode("utf-8"))
-        jsonOutput = [jsonString for jsonString in json.load(io)]
-    except:
-        pass
-    try:
-        count = jsonOutput[0][u'assets'][0][u'download_count']
-        tag = jsonOutput[0][u'tag_name']
-    except:
-        pass
-    return tag, count
+    """
+    get info from latest release
+    """
+    requestUrl = "https://api.github.com/repos/{}/{}/releases".format(
+        owner, repo)
+    response = requests.get(requestUrl).json()
+    return response[0]["tag_name"], dict((ass["name"], ass["download_count"])
+                                         for ass in response[0]["assets"])
 
 
-def getCountById(owner, repo, id):
-    """function to get info by id"""
-    tag = ""
-    count = 0
-    requestUrl = "https://api.github.com/repos/" + owner + "/" + repo + "/releases/assets/" + id
-    try:
-        jsonOutput = json.load(urllib.urlopen(requestUrl))
-    except AttributeError:
-        io = StringIO(urllib.request.urlopen(requestUrl).read().decode("utf-8"))
-        jsonOutput = json.load(io)
-    except:
-        pass
-    try:
-        count = jsonOutput[u'download_count']
-        tag = id
-    except:
-        pass
-    return tag, count
+def getCountById(owner, repo, asset):
+    """
+    get info by id
+    """
+    requestUrl = "https://api.github.com/repos/{}/{}/releases/assets/{}".format(
+        owner, repo, asset)
+    response = requests.get(requestUrl).json()
+    return asset, {response["name"]: response["download_count"]}
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description = 'Get number of downloads for given owner and project')
-    parser.add_argument('-q', '--quiet', dest = 'quiet',
-                        help = 'less output', action = 'store_true', default = False)
-    parser.add_argument('-i', '--id', dest = 'id',
-                        help = 'release ID', action = 'store', default = False)
-    parser.add_argument('-o', '--owner', dest = 'owner',
-                        help = 'repository owner', action = 'store',
-                        default = False, required = True)
-    parser.add_argument('-r', '--repository', dest = 'repository',
-                        help = 'repository name', action = 'store',
-                        default = False, required = True)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Get number of downloads for given owner and project")
+    parser.add_argument("owner", help="repository owner")
+    parser.add_argument("repository", help="repository name")
+    parser.add_argument("-q", "--quiet", help="less output",
+                        action="store_true")
+    parser.add_argument("-i", "--id", help="release ID")
     args = parser.parse_args()
 
-    tag = ""
-    count = 0
-    if (args.id):
+    if args.id:
         tag, count = getCountById(args.owner, args.repository, args.id)
     else:
         tag, count = getCountByRepo(args.owner, args.repository)
 
-    if (args.quiet):
-        print (count)
-    else:
-        print ("Release tag: " + tag + "\nDownloads: " + str(count))
+    if not args.quiet:
+        print("Release tag: {}".format(tag))
+    for asset in count:
+        print("{}: {}".format(asset, count[asset]))
